@@ -90,3 +90,18 @@ What is the temporal sampling interval between the locations?
 # The sampling interval can be interpreted as the time lag
 # it is approximately 900s (15 minutes)
 ```
+
+# Task 2 - Deriving movement parameters I: Speed
+```{r}
+# Calculate Euclidean distance
+euc.dist = function(x,y) (sqrt((lead(x)-x)^2+(lead(y)-y)^2))
+
+wildschwein_BE$steplength= euc.dist(wildschwein_BE$E, wildschwein_BE$N)
+
+# Calculate speed between locations
+wildschwein_BE$Speed = wildschwein_BE$steplength/wildschwein_BE$timelag
+
+#The unit is in degrees/s (timelag is in seconds and steplength is in degrees, since it was calculated from the euclidean distance)
+#In order to get measurable distance we would need to take into account the earths curve and terrain - haversine
+
+```
