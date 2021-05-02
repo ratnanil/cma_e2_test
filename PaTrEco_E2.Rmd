@@ -9,22 +9,84 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Patterns and trends in environmental data - Exercise 2
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Packages & data import
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
+# Load packages
 
-```{r cars}
-summary(cars)
+library(readr)        # to import tabular data (e.g. csv)
+library(dplyr)        # to manipulate (tabular) data
+library(ggplot2)      # to visualize data
+library(sf)           # to handle spatial vector data
+library(terra)        # To handle raster data
+library(lubridate)
+library(zoo)
+library(scales)
+
+# Import the Wildschwein data
+
+wildschwein_BE <- read_delim("wildschwein_BE_2056.csv",",") # adjust path
+
+wildschwein_BE <- st_as_sf(wildschwein_BE, coords = c("E", "N"), crs = 2056, remove = FALSE)
+
 ```
 
-## Including Plots
+# Task 1 - Getting an overview
 
-You can also embed plots, for example:
+```{r}
+# Calculate the time difference between subsequent rows
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+wildschwein_BE <- group_by(wildschwein_BE,TierID) # group by TierID
+
+wildschwein_BE$timelag  <- as.numeric(difftime(lead(wildschwein_BE$DatetimeUTC), wildschwein_BE$DatetimeUTC),units = "secs")
+
+# turn timelag to integer
+
+as.integer(wildschwein_BE$timelag)
+
+# A summary for individuals
+wildschwein_BE %>% 
+  group_by(TierID) %>%
+  summarise(
+    mean_timelag=mean(timelag, na.rm=T)
+  )
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Questions
+How many individuals were tracked?
+```{r}
+unique(wildschwein_BE$TierName)
+unique(wildschwein_BE$TierID)
+
+#three individuals were tracked
+```
+
+For how long were the individual tracked? Are there gaps?
+```{r}
+ggplot(wildschwein_BE, aes(x=wildschwein_BE$DatetimeUTC, y=wildschwein_BE$TierID)) +
+  geom_line()
+
+range_002A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="002A"])
+range_016A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="016A"])
+range_018A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="018A"])
+
+# The animal 002A was tracked longer (Oct2014 - Jul2015) than 016A and 018A.
+# The start of the tracking is different for each animal (same day - 2014-11-07, but different time).
+#The tracking ended on different dates, as seen in the plot. The tracking of 018A and 022A ended on the same day but not same time
+
+```
+
+Were all individuals tracked concurrently or sequentially?
+```{r}
+# The individuals were tracked concurrently because there is a large time area when they were all tracked at the same time between January 2015 and June 2015), but with slight delays.
+
+```
+
+What is the temporal sampling interval between the locations?
+```{r}
+# The sampling interval can be interpreted as the time lag
+# it is approximately 900s (15 minutes)
+```
