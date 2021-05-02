@@ -196,5 +196,38 @@ ggplot(caro_all, aes(Time,Speed, col = Trajectory, group = 1)) + geom_line() +
   theme_minimal() + ggtitle("Comparing derived speed at different sampling intervals")
  
 ```
+The plots in this exercise indicate that granularity effects the results. The lineplot shows the speeds at different granularities (1,3,6 and 9 minutes). The higher granularity line (eg. sampling every 1 minute) shows ore noisiness while lower granularity (eg. every 9 minutes) shows allot less noisiness in the data. If the granularity is too low (9 minutes) some peaks are lost, as seen in the plot. The same is seen in the plotted trajectory maps. 
 
-# Task 4 - 
+# Task 4 - Deriving movement parameters II: Rolling window functions
+```{r}
+# demo 
+example <- rnorm(10)
+rollmean(example,k = 3,fill = NA,align = "left")
+##  [1]  0.93634335  0.31709038  0.02370048  0.67869801  0.73369105  0.50401344
+##  [7] -0.56144365 -0.56902598          NA          NA
+rollmean(example,k = 4,fill = NA,align = "left")
+##  [1]  0.6775521  0.2045005  0.5848215  0.5255629  0.3446928  0.1459635
+##  [7] -0.4102301         NA         NA         NA
+
+# A higher k - smoother data
+
+# Run rollmean on caro
+caro$Speedk3=rollmean(caro$Speed,k = 3,fill = NA,align = "left")
+caro$Speedk5=rollmean(caro$Speed,k = 5,fill = NA,align = "left")
+
+# Make long data
+library(tidyr)
+caro_long <- gather(caro, key = k_value , value = Speed, Speed:Speedk5, factor_key = TRUE) 
+
+caro_long$Time <- format(as.POSIXlt(caro_long$DatetimeUTC, "%Y-%m-%d %H:%M:%S", tz = "UTC"), format = "%H:%M")
+
+# Data preprocessing
+caro_long$k_value=as.factor(caro_long$k_value)
+caro_long$Time = strptime(caro_long$Time, format = "%H:%M" )
+caro_long$Time = as.POSIXct(caro_long$Time, format = "%H:%M")
+
+#visualize speed
+ggplot(caro_long, aes(Time, Speed,col=k_value, group = 1)) + geom_line()+
+  scale_x_datetime(breaks = date_breaks("1 hour"), labels=date_format("%H:%M:%S"))+
+  theme_minimal() + ggtitle("Comparing different window sizes (k-values)")
+```
