@@ -24,6 +24,7 @@ library(terra)        # To handle raster data
 library(lubridate)
 library(zoo)
 library(scales)
+library(tidyr)
 
 # Import the Wildschwein data
 
@@ -35,30 +36,25 @@ wildschwein_BE <- st_as_sf(wildschwein_BE, coords = c("E", "N"), crs = 2056, rem
 
 # Task 1 - Getting an overview
 
-```{r echo=T, results='hide',warning = FALSE, message = FALSE}
+```{r}
 # Calculate the time difference between subsequent rows
-
-wildschwein_BE <- group_by(wildschwein_BE,TierID) # group by TierID
-
-wildschwein_BE$timelag  <- as.numeric(difftime(lead(wildschwein_BE$DatetimeUTC), wildschwein_BE$DatetimeUTC),units = "secs")
-
-# turn timelag to integer
-
-wildschwein_BE$timelag = as.integer(wildschwein_BE$timelag)
-
-# A summary for individuals
-wildschwein_BE %>% 
-  group_by(TierID) %>%
+wildschwein_BE %>%
+  group_by(TierID) %>%   # group by TierID
+  mutate(
+    timelag = as.numeric(difftime(lead(DatetimeUTC), DatetimeUTC),units = "secs"),
+    as.integer(timelag),
+  ) %>%                  # A summary for individuals
   summarise(
-    mean_timelag=mean(timelag, na.rm=T)
+  maean_timelag=mean(timelag, na.rm=T)
   )
 
 ```
 
 ## Questions
 1.) How many individuals were tracked?
-```{r}
-unique(wildschwein_BE$TierName)
+```{r, echo=T, results='hide',warning = FALSE, message = FALSE}
+# Can be seen in the summary above or:
+(wildschwein_BE$TierName)
 unique(wildschwein_BE$TierID)
 
 #three individuals were tracked
@@ -96,10 +92,15 @@ range_018A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="018A"])
 # Calculate Euclidean distance
 euc.dist = function(x,y) (sqrt((lead(x)-x)^2+(lead(y)-y)^2))
 
-wildschwein_BE$steplength= euc.dist(wildschwein_BE$E, wildschwein_BE$N)
-
-# Calculate speed between locations
-wildschwein_BE$Speed = wildschwein_BE$steplength/wildschwein_BE$timelag
+wildschwein_BE %>%
+  group_by(TierID) %>%
+  mutate(
+  timelag = as.numeric(difftime(lead(DatetimeUTC), DatetimeUTC),units = "secs"),
+  as.integer(timelag),
+  steplength= euc.dist(E,N),     # add eucl.dist as steplength
+  Speed = steplength/timelag     #calculate speed between locations
+  ) %>%
+  View
 
 #The unit is in degrees/s (timelag is in seconds and steplength is in degrees, since it was calculated from the euclidean distance)
 #In order to get measurable distance we would need to take into account the earths curve and terrain - haversine
@@ -119,6 +120,7 @@ caro_3 = caro[seq(from = 1, to = 200, by = 3),]
 caro_6 = caro[seq(from = 1, to = 200, by = 6),]
 caro_9 = caro[seq(from = 1, to = 200, by = 9),]
 
+#check
 nrow(caro)
 nrow(caro_3)
 nrow(caro_6)
@@ -217,18 +219,22 @@ caro$Speedk3=rollmean(caro$Speed,k = 3,fill = NA,align = "left")
 caro$Speedk5=rollmean(caro$Speed,k = 5,fill = NA,align = "left")
 
 # Make long data
-library(tidyr)
+caro= caro %>%
+  mutate(
+    Speedk3=rollmean(caro$Speed,k = 3,fill = NA,align = "left"),
+    Speedk5=rollmean(caro$Speed,k = 5,fill = NA,align = "left"),
+  )
+
 caro_long <- gather(caro, key = k_value , value = Speed, Speed:Speedk5, factor_key = TRUE) 
 
-caro_long$Time <- format(as.POSIXlt(caro_long$DatetimeUTC, "%Y-%m-%d %H:%M:%S", tz = "UTC"), format = "%H:%M")
-
-# Data preprocessing
-caro_long$k_value=as.factor(caro_long$k_value)
-caro_long$Time = strptime(caro_long$Time, format = "%H:%M" )
-caro_long$Time = as.POSIXct(caro_long$Time, format = "%H:%M")
-
-#visualize speed
-ggplot(caro_long, aes(Time, Speed,col=k_value, group = 1)) + geom_line()+
+caro_long %>%
+  mutate(
+  Time <- format(as.POSIXlt(caro_long$DatetimeUTC, "%Y-%m-%d %H:%M:%S", tz = "UTC"), format = "%H:%M"),
+  k_value=as.factor(k_value),
+  Time = strptime(Time, format = "%H:%M" ),
+  Time = as.POSIXct(Time, format = "%H:%M"),
+  ) %>%
+  ggplot(aes(Time, Speed,col=k_value, group = 1)) + geom_line()+
   scale_x_datetime(breaks = date_breaks("1 hour"), labels=date_format("%H:%M:%S"))+
   theme_minimal() + ggtitle("Comparing different window sizes (k-values)")
 ```
