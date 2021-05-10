@@ -38,6 +38,7 @@ wildschwein_BE <- st_as_sf(wildschwein_BE, coords = c("E", "N"), crs = 2056, rem
 
 ```{r}
 # Calculate the time difference between subsequent rows
+
 wildschwein_BE %>%
   group_by(TierID) %>%   # group by TierID
   mutate(
@@ -47,8 +48,32 @@ wildschwein_BE %>%
   summarise(
   maean_timelag=mean(timelag, na.rm=T)
   )
-
 ```
+
+# Task 1 - Sample solution
+
+First of all, I want to point out that you completed task 1 well enough. In the chunk below I added also a similar way to perform the task.
+
+```{r task 1 - sample solution, include=FALSE, warning=FALSE}
+
+# adding the column timelag using dplyr::mutate() function
+wildschwein_BE <- wildschwein_BE %>%
+  mutate(timelag = as.numeric(difftime(lead(DatetimeUTC),DatetimeUTC,units = "secs"))) 
+
+
+# Plots for checking the continuity or not of our data
+ggplot(wildschwein_BE, aes(timelag)) +
+  geom_histogram(binwidth = 50) +
+  lims(x = c(0,15000)) +
+  scale_y_log10()
+  
+wildschwein_BE %>%
+  filter(year(DatetimeUTC)  == 2014) %>%
+  ggplot(aes(DatetimeUTC,timelag, colour = TierID)) +
+  geom_line() +
+  geom_point()
+```
+
 
 ## Questions
 1.) How many individuals were tracked?
@@ -64,6 +89,12 @@ unique(wildschwein_BE$TierID)
 ```{r}
 ggplot(wildschwein_BE, aes(x=wildschwein_BE$DatetimeUTC, y=wildschwein_BE$TierID)) +
   geom_line()
+# The plot above is nicely done. Just as a minor comment, you could just use as 
+# aesthetics the respective columns without the reference to the dataset itself (since you defined it already)
+# something like this
+p1 <- ggplot(data = wildschwein_BE, aes(x = DatetimeUTC, y = TierID)) +
+  geom_line()
+# That way you are naming your axis in a much cleaner way :)
 
 range_002A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="002A"])
 range_016A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="016A"])
@@ -90,9 +121,14 @@ range_018A=range(wildschwein_BE$DatetimeUTC[wildschwein_BE$TierID=="018A"])
 # Task 2 - Deriving movement parameters I: Speed
 ```{r echo=T, results='hide',warning = FALSE, message = FALSE}
 # Calculate Euclidean distance
-euc.dist = function(x,y) (sqrt((lead(x)-x)^2+(lead(y)-y)^2))
+euc.dist = function(x,y) (sqrt((lead(x)-x)^2+(lead(y)-y)^2)) 
+## I really liked that you created a function for calculating the euclidean distance. Well done!!
 
-wildschwein_BE %>%
+
+# Below I just assigned the existing workflow of yours to a variable with the same name
+# that way you do no need to use View at the end, since all the newly created columns
+# are added to your dataset
+wildschwein_BE <- wildschwein_BE %>%
   group_by(TierID) %>%
   mutate(
   timelag = as.numeric(difftime(lead(DatetimeUTC), DatetimeUTC),units = "secs"),
@@ -120,6 +156,10 @@ caro_3 = caro[seq(from = 1, to = 200, by = 3),]
 caro_6 = caro[seq(from = 1, to = 200, by = 6),]
 caro_9 = caro[seq(from = 1, to = 200, by = 9),]
 
+# Nicely done! As something additional, you could also use the slice() function. Something like this:
+caro60_3 <- caro60 %>%
+slice(seq(1,nrow(.),3)) # the dot (".") represents the piped dataset
+
 #check
 nrow(caro)
 nrow(caro_3)
@@ -128,7 +168,7 @@ nrow(caro_9)
 
 #calculate timelag, steplength and speed for all caro datasets
 
-#caro
+#caro -- as another way, you could again use the mutate function. This applies also to all the other datasets (caro3,caro6,..etc) 
 caro$timelag  <- as.numeric(difftime(lead(caro$DatetimeUTC), caro$DatetimeUTC),units = "secs")
 caro$steplength= euc.dist(caro$E, caro$N)
 caro$Speed = caro$steplength/caro$timelag
@@ -160,6 +200,15 @@ caro_19$Trajectory=c(replicate(200, "1 minute"), replicate(23,"9 minutes"))
 
 caro_all=rbind(caro, caro_3 , caro_6, caro_9)
 caro_all$Trajectory=c(replicate(200, "1 minute"), replicate(67,"3 minutes"), replicate(34,"6 minutes"),replicate(23,"9 minutes")  )
+
+# Altough you created the plots correctly, you could do it easier and faster like this:
+# e.g comparing 1 to 3
+p1_3 <- ggplot() +
+geom_point(data = caro, aes(E,N, colour = "1 minute"), alpha = 0.2) +
+geom_path(data = caro, aes(E,N, colour = "1 minute"), alpha = 0.2) +
+geom_point(data = caro_3, aes(E,N, colour = "3 minutes")) +
+geom_path(data = caro_3, aes(E,N, colour = "3 minutes")) +
+labs(color="Trajectory", title = "Comparing original- with 3 minutes-resampled data") +  theme_minimal()
 
 # visual comparisons to original
 #plot caro 3 compared to caro
